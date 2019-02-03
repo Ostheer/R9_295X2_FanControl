@@ -1,4 +1,5 @@
 baudrate = 9600
 serialroot = /dev/ttyUSB
 
-forcelevel1 = 50
+forcelevel1 = 15
+forcelevel2 = 15
