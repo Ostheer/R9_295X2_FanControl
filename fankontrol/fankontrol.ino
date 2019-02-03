@@ -141,9 +141,9 @@ void loop() {
         case 'W'://W command: (W)hat is the device? Respond with ID
           Serial.println("1337");
         break;
-        case '\n'://newline: command done
-          Serial.println("ok");
-        break;
+        //case '\n'://newline: command done
+        //  Serial.println("ok");
+        //break;
         default://Invalid command: empty buffer and carry on (Error E1)
           Serial.println("E1");
           inString = "";

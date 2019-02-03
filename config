@@ -1,0 +1,4 @@
+baudrate = 9600
+serialroot = /dev/ttyUSB
+
+forcelevel1 = 50
