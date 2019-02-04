@@ -8,6 +8,7 @@ import os
 #Connection params
 TIMEOUT = 1
 CONNECTED = False
+ser = None
 
 #Arbitrary conventions
 fan_ids = ('O', 'T')
@@ -32,13 +33,24 @@ sMeasure2 = 0
 
 #Functions
 def sendAndReceive(command):
-	ser.write(command.encode("utf-8"))
-	recv = ser.readline()
+	global CONNECTED
+
 	try:
+		ser.write(command.encode("utf-8"))
+		recv = ser.readline()
 		recv = recv.decode("utf-8")
 	except UnicodeDecodeError:
 		recv = 'non-utf-8'
-	return recv
+	except serial.SerialException:
+		print("Connection error.")
+		ser.close()
+		CONNECTED = False
+		recv = 'Connection reset'
+		#Try to make a connection again...
+		time.sleep(3)
+		makeSerialConnection()
+	finally:
+		return recv
 
 def readGPUTemp():
 	p = subprocess.Popen("sensors", stdout=subprocess.PIPE, shell=True)
@@ -77,74 +89,82 @@ def tempToSpeed(temp, fan):
 	return speed
 		
 def setFanSpeed(level, fan):
+	recv = sendAndReceive(str(level) + fan_ids[fan-1])
+	if (recv == fan_ids[fan-1] + ':' + str(level) + '\r\n'):
+		return True
+	else:
+		print("Received unexpected result: " + recv)
+		return False
+
+	
+def readConfig(initialisation):
+	global baudrate
+	global serialroot
+	global forcelevel1
+	global forcelevel2
+	global ub_temp
+	global lb_temp
+	global lb_speed
+	global ub_speed
+
 	try:
-		recv = sendAndReceive(str(level) + fan_ids[fan-1])
-		if (recv == fan_ids[fan-1] + ':' + str(level) + '\r\n'):
-			return True
-		else:
-			return False
-	except serial.SerialException:
-		print("Oh fuck, something happened in setFanSpeed.")
-		ser.close()
-		quit() 
+		with open('config') as f:
+			lines = f.readlines()
+			
+		for line in lines:
+			keyword = line.split('=')[0].strip()
+			if not keyword == '': #empty lines
+				if not keyword.split('=')[0][0] == '#': #commented lines
+					#Serial communication configuration params
+					if(keyword == 'baudrate'):
+						baudrate = int(line.split('=')[1].split('\n')[0].strip())
+					elif(keyword == 'serialroot'):
+						serialroot = line.split('=')[1].split('\n')[0].strip()
+					#Force fan speeds
+					elif(keyword == 'forcelevel1'):
+						forcelevel1 = int(line.split('=')[1].split('\n')[0].strip())
+					elif(keyword == 'forcelevel2'):
+						forcelevel2 = int(line.split('=')[1].split('\n')[0].strip())
+					#Fan speed curve configuration params
+					elif(keyword == 'ub_temp1'):
+						ub_temp[0] = int(line.split('=')[1].split('\n')[0].strip())
+					elif(keyword == 'lb_temp1'):
+						lb_temp[0] = int(line.split('=')[1].split('\n')[0].strip())
+					elif(keyword == 'lb_speed1'):
+						lb_speed[0] = int(line.split('=')[1].split('\n')[0].strip())
+					elif(keyword == 'ub_speed1'):
+						ub_speed[0] = int(line.split('=')[1].split('\n')[0].strip())
+					elif(keyword == 'ub_temp2'):
+						ub_temp[1] = int(line.split('=')[1].split('\n')[0].strip())
+					elif(keyword == 'lb_temp2'):
+						lb_temp[1] = int(line.split('=')[1].split('\n')[0].strip())
+					elif(keyword == 'lb_speed2'):
+						lb_speed[1] = int(line.split('=')[1].split('\n')[0].strip())
+					elif(keyword == 'ub_speed2'):
+						ub_speed[1] = int(line.split('=')[1].split('\n')[0].strip())
+					#Unparseable garbage
+					else:
+						if not (keyword == ''):
+							print("Unknown keyword: " + keyword)
+	except FileNotFoundError:
+		print("No configuration file (in " + os.getcwd() + ")! Using defaults...")
+		pass
+	finally:
+		if initialisation:
+			print("Configuration:")
+			print(str(serialroot) + '*')
+			print(str(baudrate) + ' baud')
+			print("ub_temp: " + str(ub_temp))
+			print("lb_temp: " + str(lb_temp))
+			print("lb_speed: " + str(lb_speed))
+			print("ub_speed: " + str(ub_speed))
+			print('force fan1: ' + str(forcelevel1))
+			print('force fan2: ' + str(forcelevel2) + "\n")
+		
+def makeSerialConnection():
+	global ser
+	global CONNECTED
 	
-
-## INITIALISATION
-
-try:
-	#Read configuration file
-	with open('config') as f:
-		lines = f.readlines()
-	for line in lines:
-		keyword = line.split('=')[0].strip()
-		if not keyword == '': #empty lines
-			if not keyword.split('=')[0][0] == '#': #commented lines
-				#Serial communication configuration params
-				if(keyword == 'baudrate'):
-					baudrate = int(line.split('=')[1].split('\n')[0].strip())
-				elif(keyword == 'serialroot'):
-					serialroot = line.split('=')[1].split('\n')[0].strip()
-				#Force fan speeds
-				elif(keyword == 'forcelevel1'):
-					forcelevel1 = int(line.split('=')[1].split('\n')[0].strip())
-				elif(keyword == 'forcelevel2'):
-					forcelevel2 = int(line.split('=')[1].split('\n')[0].strip())
-				#Fan speed curve configuration params
-				elif(keyword == 'ub_temp1'):
-					ub_temp[0] = int(line.split('=')[1].split('\n')[0].strip())
-				elif(keyword == 'lb_temp1'):
-					lb_temp[0] = int(line.split('=')[1].split('\n')[0].strip())
-				elif(keyword == 'lb_speed1'):
-					lb_speed[0] = int(line.split('=')[1].split('\n')[0].strip())
-				elif(keyword == 'ub_speed1'):
-					ub_speed[0] = int(line.split('=')[1].split('\n')[0].strip())
-				elif(keyword == 'ub_temp2'):
-					ub_temp[1] = int(line.split('=')[1].split('\n')[0].strip())
-				elif(keyword == 'lb_temp2'):
-					lb_temp[1] = int(line.split('=')[1].split('\n')[0].strip())
-				elif(keyword == 'lb_speed2'):
-					lb_speed[1] = int(line.split('=')[1].split('\n')[0].strip())
-				elif(keyword == 'ub_speed2'):
-					ub_speed[1] = int(line.split('=')[1].split('\n')[0].strip())
-				#Unparseable garbage
-				else:
-					if not (keyword == ''):
-						print("Unknown keyword: " + keyword)
-except FileNotFoundError:
-	print("No configuration file (in " + os.getcwd() + ")! Using defaults...")
-finally:
-	print("Configuration:")
-	print(str(serialroot) + '*')
-	print(str(baudrate) + ' baud')
-	print("ub_temp: " + str(ub_temp))
-	print("lb_temp: " + str(lb_temp))
-	print("lb_speed: " + str(lb_speed))
-	print("ub_speed: " + str(ub_speed))
-	print('force fan1: ' + str(forcelevel1))
-	print('force fan2: ' + str(forcelevel2) + "\n")
-	
-	
-	#Open serial port
 	try:
 		devices = glob.glob(serialroot + "*")
 		devices.reverse()
@@ -173,9 +193,11 @@ finally:
 	finally:
 		if not CONNECTED:
 			print("Could not connect to any device. Exiting...")
-			quit()
+			os._exit(1)
 
-
+## INITIALISATION
+readConfig(True)
+makeSerialConnection()
 
 ## MAIN ROUTINE
 
@@ -209,9 +231,10 @@ try:
 				if setFanSpeed(forcelevel2, 2):
 					sSetpoint2 = forcelevel2
 					print("Fan 2 forced to " + str(forcelevel2))
-								
-					
-		time.sleep(1)
+
+		#update configuration file
+		readConfig(False)
+		time.sleep(1)				
 except KeyboardInterrupt:
 	print("Stopping...")
 	pass
