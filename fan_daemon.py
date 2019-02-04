@@ -1,21 +1,33 @@
 import serial
 import time
 import glob
+import subprocess
+import os
 
+##PARAMETER DEFINITION
 #Connection params
 TIMEOUT = 1
 CONNECTED = False
 
-#Config params
+#Arbitrary conventions
+fan_ids = ('O', 'T')
+
+#Config params (overridden by config file)
 baudrate = 9600
 serialroot = '/dev/ttyUSB'
-forcelevel1 = 0
-forcelevel2 = 0
+forcelevel1 = -1 #-1 to disable force level
+forcelevel2 = -1
+
+#Fan speed curve params (overridden by config file)
+ub_temp = [100, 100] #Fans all out at 100 degrees
+lb_temp = [50, 50] #Until here, idle speeds
+lb_speed = [50, 50] #Idle speed, for when below lb_temp degrees
+ub_speed = [3000, 3000] #Max speed, defined by Arduino code (very nonlinear).
 
 #Fan params
-sSetpoint1 = 0
-sSetpoint2 = 0
-sMeasure1 = 0
+sSetpoint1 = -1 #speed setpoint
+sSetpoint2 = -1
+sMeasure1 = 0 #measured speed
 sMeasure2 = 0
 
 #Functions
@@ -28,35 +40,110 @@ def sendAndReceive(command):
 		recv = 'non-utf-8'
 	return recv
 
+def readGPUTemp():
+	p = subprocess.Popen("sensors", stdout=subprocess.PIPE, shell=True)
+	(output, err) = p.communicate()
+	#Radeon 295X2 has two GPUs. Dividing with split('radeon-pci') makes sure
+	#that the first occurence of any temperature (denoted by the degree circle)
+	#corresponds to the Radeon GPU temperature. The actual number is enclosed 
+	#between a + and a °. Finally discard the decimals and  convert to integer.
+	temp1 = int(output.decode('utf-8').split('radeon-pci')[1].split('°')[0].split('+')[1].split('.')[0])
+	temp2 = int(output.decode('utf-8').split('radeon-pci')[2].split('°')[0].split('+')[1].split('.')[0])
+	return (temp1, temp2)
+	
+def tempToSpeed(temp, fan):
+	lbt = lb_temp[fan-1]
+	lbs = lb_speed[fan-1]
+	ubt = ub_temp[fan-1]
+	ubs = ub_speed[fan-1]
+	
+	if temp < lbt:
+		speed = lbs
+	elif temp < (ubt - lbt)*1/5:
+		#speed = (ubs - lbs)*1/5
+		speed = 20
+	elif temp < (ubt - lbt)*2/5:
+		#speed = (ubs - lbs)*2/5
+		speed = 30
+	elif temp < (ubt - lbt)*3/5:
+		#speed = (ubs - lbs)*3/5
+		speed = 50
+	elif temp < (ubt - lbt)*4/5:
+		#speed = (ubs - lbs)*4/5
+		speed = 80
+	elif temp > ubt:
+		speed = ubs
+		
+	return speed
+		
+def setFanSpeed(level, fan):
+	try:
+		recv = sendAndReceive(str(level) + fan_ids[fan-1])
+		if (recv == fan_ids[fan-1] + ':' + str(level) + '\r\n'):
+			return True
+		else:
+			return False
+	except serial.SerialException:
+		print("Oh fuck, something happened in setFanSpeed.")
+		ser.close()
+		quit() 
+	
+
 ## INITIALISATION
 
-#Read configuration file
 try:
+	#Read configuration file
 	with open('config') as f:
 		lines = f.readlines()
-		
 	for line in lines:
 		keyword = line.split('=')[0].strip()
-		if(keyword == 'baudrate'):
-			baudrate = int(line.split('=')[1].split('\n')[0].strip())
-		elif(keyword == 'serialroot'):
-			serialroot = line.split('=')[1].split('\n')[0].strip()
-		elif(keyword == 'forcelevel1'):
-			forcelevel1 = int(line.split('=')[1].split('\n')[0].strip())
-		elif(keyword == 'forcelevel2'):
-			forcelevel2 = int(line.split('=')[1].split('\n')[0].strip())
-		else:
-			if not (keyword == ''):
-				print("Unknown keyword: " + keyword)
+		if not keyword == '': #empty lines
+			if not keyword.split('=')[0][0] == '#': #commented lines
+				#Serial communication configuration params
+				if(keyword == 'baudrate'):
+					baudrate = int(line.split('=')[1].split('\n')[0].strip())
+				elif(keyword == 'serialroot'):
+					serialroot = line.split('=')[1].split('\n')[0].strip()
+				#Force fan speeds
+				elif(keyword == 'forcelevel1'):
+					forcelevel1 = int(line.split('=')[1].split('\n')[0].strip())
+				elif(keyword == 'forcelevel2'):
+					forcelevel2 = int(line.split('=')[1].split('\n')[0].strip())
+				#Fan speed curve configuration params
+				elif(keyword == 'ub_temp1'):
+					ub_temp[0] = int(line.split('=')[1].split('\n')[0].strip())
+				elif(keyword == 'lb_temp1'):
+					lb_temp[0] = int(line.split('=')[1].split('\n')[0].strip())
+				elif(keyword == 'lb_speed1'):
+					lb_speed[0] = int(line.split('=')[1].split('\n')[0].strip())
+				elif(keyword == 'ub_speed1'):
+					ub_speed[0] = int(line.split('=')[1].split('\n')[0].strip())
+				elif(keyword == 'ub_temp2'):
+					ub_temp[1] = int(line.split('=')[1].split('\n')[0].strip())
+				elif(keyword == 'lb_temp2'):
+					lb_temp[1] = int(line.split('=')[1].split('\n')[0].strip())
+				elif(keyword == 'lb_speed2'):
+					lb_speed[1] = int(line.split('=')[1].split('\n')[0].strip())
+				elif(keyword == 'ub_speed2'):
+					ub_speed[1] = int(line.split('=')[1].split('\n')[0].strip())
+				#Unparseable garbage
+				else:
+					if not (keyword == ''):
+						print("Unknown keyword: " + keyword)
 except FileNotFoundError:
-	print("No configuration file! Using defaults...")
+	print("No configuration file (in " + os.getcwd() + ")! Using defaults...")
 finally:
 	print("Configuration:")
 	print(str(serialroot) + '*')
 	print(str(baudrate) + ' baud')
+	print("ub_temp: " + str(ub_temp))
+	print("lb_temp: " + str(lb_temp))
+	print("lb_speed: " + str(lb_speed))
+	print("ub_speed: " + str(ub_speed))
 	print('force fan1: ' + str(forcelevel1))
-	print('force fan2: ' + str(forcelevel2))
-	print('')
+	print('force fan2: ' + str(forcelevel2) + "\n")
+	
+	
 	#Open serial port
 	try:
 		devices = glob.glob(serialroot + "*")
@@ -67,10 +154,10 @@ finally:
 			ser = serial.Serial(device,baudrate,timeout=TIMEOUT)
 			time.sleep(3)
 			a = sendAndReceive('W')
-			print(a)
+			print(a.split('\r')[0])
 			if(a.split('\r')[0] == '1337'):
 				#Device responds with appropriate ID
-				print("Connected to controller on " + device)
+				print("Connected to controller on " + device + "\n")
 				CONNECTED = True
 				break
 			else:
@@ -79,9 +166,9 @@ finally:
 				ser.close()
 				
 	except serial.SerialException:
-		#dingen hier?
 		print("Unexpected serial error. Giving up.")
 		ser.close()
+		CONNECTED = False
 		pass
 	finally:
 		if not CONNECTED:
@@ -90,40 +177,39 @@ finally:
 
 
 
-##MAIN ROUTINE
+## MAIN ROUTINE
 
 try:	
 	while True:
+		temps = readGPUTemp()
+		avgtemp = (temps[0] + temps[1])/2
 		
-		if (forcelevel1 == 0):
-			print("1: temp monitor not implemented")
+		if (forcelevel1 == -1):
+			if not tempToSpeed(avgtemp, 1) == sSetpoint1:
+				print("Adjusting fan 1 speed for temp. " + str(avgtemp) + " with speed: " + str(tempToSpeed(avgtemp, 1)))
+				if setFanSpeed(tempToSpeed(avgtemp, 1), 1):
+					sSetpoint1 = tempToSpeed(avgtemp, 1)
+					print("Fan 1 speed adjusted to " + str(tempToSpeed(avgtemp, 1)))
 		else:
 			if not (sSetpoint1 == forcelevel1):
 				print("Setting forcelevel1...")
-				try:
-					recv = sendAndReceive(str(forcelevel1) + 'O')
-					if (recv == 'f1:'+str(forcelevel1)+'\r\n'):
-						sSetpoint1 = forcelevel1
-						print("Fan 1 speed set to forced level")
-				except serial.SerialException:
-					print("Oh fuck, something happened.")
-					ser.close()
-					quit() 
-		
-		if (forcelevel2 == 0):
-			print("2: temp monitor not implemented")
+				if setFanSpeed(forcelevel1, 1):
+					sSetpoint1 = forcelevel1
+					print("Fan 1 forced to " + str(forcelevel1))
+					
+		if (forcelevel2 == -1):
+			if not tempToSpeed(avgtemp, 2) == sSetpoint2:
+				print("Adjusting fan 2 speed for temp. " + str(avgtemp) + " with speed: " + str(tempToSpeed(avgtemp, 2)))
+				if setFanSpeed(tempToSpeed(avgtemp, 2), 2):
+					sSetpoint2 = tempToSpeed(avgtemp, 2)
+					print("Fan 2 speed adjusted to " + str(tempToSpeed(avgtemp, 2)))
 		else:
 			if not (sSetpoint2 == forcelevel2):
 				print("Setting forcelevel2...")
-				try:
-					recv = sendAndReceive(str(forcelevel2) + 'T')
-					if (recv == 'f2:'+str(forcelevel2)+'\r\n'):
-						sSetpoint2 = forcelevel2
-						print("Fan 2 speed set to forced level")
-				except serial.SerialException:
-					print("Oh fuck, something happened.")
-					ser.close()
-					quit() 				
+				if setFanSpeed(forcelevel2, 2):
+					sSetpoint2 = forcelevel2
+					print("Fan 2 forced to " + str(forcelevel2))
+								
 					
 		time.sleep(1)
 except KeyboardInterrupt:

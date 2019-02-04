@@ -128,13 +128,13 @@ void loop() {
       switch (incomingByte){
         case 'O'://Fan (O)ne: write to fan1
           fanComp1 = inString.toInt();
-          Serial.print("f1:");
+          Serial.print("O:");
           Serial.println(fanComp1);
           inString = "";
         break;
         case 'T'://Fan (T)wo: write to fan2
           fanComp2 = inString.toInt();
-          Serial.print("f2:");
+          Serial.print("T:");
           Serial.println(fanComp2);
           inString = "";
         break;
