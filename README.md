@@ -12,5 +12,4 @@ TODO: Use optical isolator to readout the hall effect rpm sensor
 ## Python daemon
 1.    Read config file
 2.    Scan PC for serial ports and try to connect to them
-3. a) Write forced fan speeds indicated by config file
-b) TODO: Loop fan speed checking GPU temps
+3.    Loop: Check if speed needs to be changed (mandated by either file or temp) and do so
