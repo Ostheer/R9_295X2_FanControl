@@ -48,17 +48,15 @@ try:
 		else:
 			if not (keyword == ''):
 				print("Unknown keyword: " + keyword)
-			
+except FileNotFoundError:
+	print("No configuration file! Using defaults...")
+finally:
 	print("Configuration:")
 	print(str(serialroot) + '*')
 	print(str(baudrate) + ' baud')
 	print('force fan1: ' + str(forcelevel1))
 	print('force fan2: ' + str(forcelevel2))
 	print('')
-	
-except FileNotFoundError:
-	print("No configuration file! Using defaults...")
-finally:
 	#Open serial port
 	try:
 		devices = glob.glob(serialroot + "*")
