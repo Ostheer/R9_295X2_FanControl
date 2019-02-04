@@ -115,33 +115,34 @@ def readConfig(initialisation):
 			keyword = line.split('=')[0].strip()
 			if not keyword == '': #empty lines
 				if not keyword.split('=')[0][0] == '#': #commented lines
+					value = line.split('=')[1].split('\n')[0].strip()
 					#Serial communication configuration params
 					if(keyword == 'baudrate'):
-						baudrate = int(line.split('=')[1].split('\n')[0].strip())
+						baudrate = int(value)
 					elif(keyword == 'serialroot'):
-						serialroot = line.split('=')[1].split('\n')[0].strip()
+						serialroot = value
 					#Force fan speeds
 					elif(keyword == 'forcelevel1'):
-						forcelevel1 = int(line.split('=')[1].split('\n')[0].strip())
+						forcelevel1 = int(value)
 					elif(keyword == 'forcelevel2'):
-						forcelevel2 = int(line.split('=')[1].split('\n')[0].strip())
+						forcelevel2 = int(value)
 					#Fan speed curve configuration params
 					elif(keyword == 'ub_temp1'):
-						ub_temp[0] = int(line.split('=')[1].split('\n')[0].strip())
+						ub_temp[0] = int(value)
 					elif(keyword == 'lb_temp1'):
-						lb_temp[0] = int(line.split('=')[1].split('\n')[0].strip())
+						lb_temp[0] = int(value)
 					elif(keyword == 'lb_speed1'):
-						lb_speed[0] = int(line.split('=')[1].split('\n')[0].strip())
+						lb_speed[0] = int(value)
 					elif(keyword == 'ub_speed1'):
-						ub_speed[0] = int(line.split('=')[1].split('\n')[0].strip())
+						ub_speed[0] = int(value)
 					elif(keyword == 'ub_temp2'):
-						ub_temp[1] = int(line.split('=')[1].split('\n')[0].strip())
+						ub_temp[1] = int(value)
 					elif(keyword == 'lb_temp2'):
-						lb_temp[1] = int(line.split('=')[1].split('\n')[0].strip())
+						lb_temp[1] = int(value)
 					elif(keyword == 'lb_speed2'):
-						lb_speed[1] = int(line.split('=')[1].split('\n')[0].strip())
+						lb_speed[1] = int(value)
 					elif(keyword == 'ub_speed2'):
-						ub_speed[1] = int(line.split('=')[1].split('\n')[0].strip())
+						ub_speed[1] = int(value)
 					#Unparseable garbage
 					else:
 						if not (keyword == ''):
@@ -167,7 +168,6 @@ def makeSerialConnection():
 	
 	try:
 		devices = glob.glob(serialroot + "*")
-		devices.reverse()
 		
 		for device in devices:
 			print("Trying to connect to " + device + "...")
@@ -200,7 +200,6 @@ readConfig(True)
 makeSerialConnection()
 
 ## MAIN ROUTINE
-
 try:	
 	while True:
 		temps = readGPUTemp()

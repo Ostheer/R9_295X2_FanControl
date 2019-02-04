@@ -7,7 +7,7 @@ baudrate = 9600
 serialroot = /dev/ttyUSB
 
 #Force fan speeds (range 0-3000, defined by Arduino code), -1 to disable
-forcelevel1 = -1
+forcelevel1 = 3000
 forcelevel2 = -1
 
 ## Fan speed curve params
