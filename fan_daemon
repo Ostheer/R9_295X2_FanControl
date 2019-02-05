@@ -91,22 +91,22 @@ def tempToSpeed(temp, fan):
 	
 	if temp < lbt:
 		speed = lbs
-	elif temp < (ubt - lbt)*1/5:
-		#speed = (ubs - lbs)*1/5
-		speed = 20
-	elif temp < (ubt - lbt)*2/5:
-		#speed = (ubs - lbs)*2/5
-		speed = 30
-	elif temp < (ubt - lbt)*3/5:
-		#speed = (ubs - lbs)*3/5
-		speed = 50
-	elif temp < (ubt - lbt)*4/5:
-		#speed = (ubs - lbs)*4/5
-		speed = 80
+	elif temp < lbt + (ubt - lbt)*1/5:
+		speed = lbs + (ubs - lbs)*1/5
+		#speed = 20
+	elif temp < lbt + (ubt - lbt)*2/5:
+		speed = lbs + (ubs - lbs)*2/5
+		#speed = 30
+	elif temp < lbt + (ubt - lbt)*3/5:
+		speed = lbs + (ubs - lbs)*3/5
+		#speed = 50
+	elif temp < lbt + (ubt - lbt)*4/5:
+		speed = lbs + (ubs - lbs)*4/5
+		#speed = 80
 	elif temp > ubt:
 		speed = ubs
 		
-	return speed
+	return int(speed)
 		
 def setFanSpeed(level, fan):
 	recv = sendAndReceive(str(level) + fan_ids[fan-1])

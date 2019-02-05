@@ -1,7 +1,7 @@
 ## Configuration file for R9_295X2_FanControl
 # Lines starting with # are ignored
 # Read by fan control script in /usr/bin/fan_daemon
-#
+
 #Set baudrate. Must match that on the Arduino
 baudrate = 9600
 #Specify where the serial device can be found. Number is not necessary
@@ -11,8 +11,8 @@ serialroot = /dev/ttyUSB
 #Seemingly good values:
 #forcelevel1 = 20
 #forcelevel2 = 50
-forcelevel1 = 60 
-forcelevel2 = 60
+forcelevel1 = -1 
+forcelevel2 = -1
 forcelevel3 = -1
 
 ## Fan speed curve params
@@ -25,10 +25,10 @@ lb_temp1 = 60
 lb_temp2 = 60
 lb_temp3 = 60
 #Idle speed, for when below lb_temp degrees
-lb_speed1 = 20
-lb_speed2 = 10
-lb_speed3 = 10
+lb_speed1 = 30
+lb_speed2 = 50
+lb_speed3 = 50
 #Max speed, defined by Arduino code (very nonlinear).
 ub_speed1 = 255
-ub_speed2 = 500
-ub_speed3 = 500
+ub_speed2 = 3000
+ub_speed3 = 3000
