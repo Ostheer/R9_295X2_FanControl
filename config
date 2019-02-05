@@ -10,7 +10,7 @@ serialroot = /dev/ttyUSB
 #Seemingly good values:
 #forcelevel1 = 20
 #forcelevel2 = 50
-forcelevel1 = 50
+forcelevel1 = 60
 forcelevel2 = 60
 forcelevel3 = -1
 

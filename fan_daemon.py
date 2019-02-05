@@ -35,6 +35,9 @@ sMeasure2 = 0
 sMeasure3 = 0
 
 #Functions
+def dumpRead():
+	ser.readline()
+	
 def sendAndReceive(command):
 	global CONNECTED
 
@@ -46,6 +49,7 @@ def sendAndReceive(command):
 		recv = 'non-utf-8'
 	except serial.SerialException:
 		print("Connection error.")
+		dumpRead()
 		ser.close()
 		CONNECTED = False
 		recv = 'Connection reset'
@@ -101,16 +105,21 @@ def setFanSpeed(level, fan):
 
 def getFanSpeed(fan):
 	fail = True
+	attempts = 0
 	while fail:
 		try:
-			recv = sendAndReceive(str(fan-1) + 'R')
-			recv = int(recv.split(':')[1])
+			recvd = sendAndReceive(str(fan-1) + 'R')
+			speed = int(recvd.split(':')[1])
+			fail = False
 		except IndexError:
 			fail = True
 			time.sleep(1/2)
 		finally:
-			fail = False
-	return recv
+			attempts = attempts + 1
+
+		if attempts == 5:
+			return -1
+	return speed
 	
 def readConfig(initialisation):
 	global baudrate
@@ -187,7 +196,10 @@ def readConfig(initialisation):
 			print('force fan1: ' + str(forcelevel1))
 			print('force fan2: ' + str(forcelevel2))
 			print('force fan3: ' + str(forcelevel3) + "\n")
-		
+
+#def connectExplicit(d,b,t):
+#	return serial.Serial(d,b,timeout=t)
+
 def makeSerialConnection():
 	global ser
 	global CONNECTED
@@ -196,19 +208,25 @@ def makeSerialConnection():
 		devices = glob.glob(serialroot + "*")
 		
 		for device in devices:
+			tries = 0
 			print("Trying to connect to " + device + "...")
 			ser = serial.Serial(device,baudrate,timeout=TIMEOUT)
-			time.sleep(3)
-			a = sendAndReceive('W')
-			print(a.split('\r')[0])
-			if(a.split('\r')[0] == '1337'):
-				#Device responds with appropriate ID
-				print("Connected to controller on " + device + "\n")
-				CONNECTED = True
+			while (tries < 3) and (not CONNECTED):
+				time.sleep(3)
+				a = sendAndReceive('W')
+				print(a.split('\r')[0])
+				if(a.split('\r')[0] == '1337'):
+					#Device responds with appropriate ID
+					print("Connected to controller on " + device + "\n")
+					CONNECTED = True
+				else:
+					#Incorrect response: random other device
+					print(device + " replied with incorrect ID")
+				tries = tries + 1
+				
+			if CONNECTED:
 				break
 			else:
-				#Incorrect response: random other device
-				print(device + " replied with incorrect ID")
 				ser.close()
 				
 	except serial.SerialException:
@@ -270,9 +288,11 @@ try:
 				if setFanSpeed(forcelevel3, 3):
 					sSetpoint3 = forcelevel3
 					print("Fan 3 forced to " + str(forcelevel3))
-
-		print(getFanSpeed(1))
-		#print(getFanSpeed(2))
+		
+		
+		#sMeasure1 = getFanSpeed(1)
+		#if not sMeasure1 == -1:
+		#	print("Fan 1 speed: " + str(sMeasure1))
 		
 		#update configuration file
 		readConfig(False)
