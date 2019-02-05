@@ -7,11 +7,14 @@ import os
 import datetime
 
 ##PARAMETER DEFINITION
+#User IO setup
+logToFile = True
+path = "/home/ostheer/.radeonFanControl/"
+
 #Connection params
 TIMEOUT = 1
 CONNECTED = False
 ser = None
-logToFile = True
 
 #Arbitrary conventions
 fan_ids = ('Z', 'O', 'T')
@@ -40,7 +43,7 @@ sMeasure3 = 0
 #Functions
 def logOutput(message):
 	if logToFile:
-		with open('log','ab') as f:
+		with open(path + "log",'ab') as f:
 			f.write((message + "\n").encode("utf-8"))
 	else:
 		print(message)
@@ -142,7 +145,7 @@ def readConfig(initialisation):
 	global ub_speed
 
 	try:
-		with open('config') as f:
+		with open(path + "config") as f:
 			lines = f.readlines()
 			
 		for line in lines:

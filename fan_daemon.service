@@ -1,0 +1,8 @@
+[Unit]
+Description=Homemade fan control script for Radeon R9 295X2 fans
+
+[Service]
+ExecStart=/usr/bin/fan_daemon
+
+[Install]
+WantedBy=multi-user.target
