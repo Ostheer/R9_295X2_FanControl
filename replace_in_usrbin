@@ -1,0 +1,5 @@
+systemctl stop fan_daemon.service
+rm /usr/bin/fan_daemon 
+cp fan_daemon /usr/bin/fan_daemon
+chmod 755 /usr/bin/fan_daemon
+systemctl start fan_daemon.service

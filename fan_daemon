@@ -5,6 +5,8 @@ import glob
 import subprocess
 import os
 import datetime
+import sys
+import signal
 
 ##PARAMETER DEFINITION
 #User IO setup
@@ -41,6 +43,11 @@ sMeasure2 = 0
 sMeasure3 = 0
 
 #Functions
+def signal_term_handler(signal, frame):
+    logOutput('Got SIGTERM. Perhaps killed by systemd.')
+    ser.close()
+    os._exit(0)
+    
 def logOutput(message):
 	if logToFile:
 		with open(path + "log",'ab') as f:
@@ -254,6 +261,7 @@ def makeSerialConnection():
 
 ## INITIALISATION
 logOutput("Starting script at " + str(datetime.datetime.now()))
+signal.signal(signal.SIGTERM, signal_term_handler)
 readConfig(True)
 makeSerialConnection()
 
