@@ -11,25 +11,28 @@ CONNECTED = False
 ser = None
 
 #Arbitrary conventions
-fan_ids = ('O', 'T')
+fan_ids = ('Z', 'O', 'T')
 
 #Config params (overridden by config file)
 baudrate = 9600
 serialroot = '/dev/ttyUSB'
 forcelevel1 = -1 #-1 to disable force level
 forcelevel2 = -1
+forcelevel3 = -1
 
 #Fan speed curve params (overridden by config file)
-ub_temp = [100, 100] #Fans all out at 100 degrees
-lb_temp = [50, 50] #Until here, idle speeds
-lb_speed = [50, 50] #Idle speed, for when below lb_temp degrees
-ub_speed = [3000, 3000] #Max speed, defined by Arduino code (very nonlinear).
+ub_temp = [100, 100, 100] #Fans all out at 100 degrees
+lb_temp = [50, 50, 50] #Until here, idle speeds
+lb_speed = [20, 50, 50] #Idle speed, for when below lb_temp degrees
+ub_speed = [255, 3000, 3000] #Max speed, defined by Arduino code (very nonlinear).
 
 #Fan params
 sSetpoint1 = -1 #speed setpoint
 sSetpoint2 = -1
+sSetpoint3 = -1
 sMeasure1 = 0 #measured speed
 sMeasure2 = 0
+sMeasure3 = 0
 
 #Functions
 def sendAndReceive(command):
@@ -96,6 +99,18 @@ def setFanSpeed(level, fan):
 		print("Received unexpected result: " + recv)
 		return False
 
+def getFanSpeed(fan):
+	fail = True
+	while fail:
+		try:
+			recv = sendAndReceive(str(fan-1) + 'R')
+			recv = int(recv.split(':')[1])
+		except IndexError:
+			fail = True
+			time.sleep(1/2)
+		finally:
+			fail = False
+	return recv
 	
 def readConfig(initialisation):
 	global baudrate
@@ -126,6 +141,8 @@ def readConfig(initialisation):
 						forcelevel1 = int(value)
 					elif(keyword == 'forcelevel2'):
 						forcelevel2 = int(value)
+					elif(keyword == 'forcelevel3'):
+						forcelevel3 = int(value)
 					#Fan speed curve configuration params
 					elif(keyword == 'ub_temp1'):
 						ub_temp[0] = int(value)
@@ -143,6 +160,14 @@ def readConfig(initialisation):
 						lb_speed[1] = int(value)
 					elif(keyword == 'ub_speed2'):
 						ub_speed[1] = int(value)
+					elif(keyword == 'ub_temp3'):
+						ub_temp[2] = int(value)
+					elif(keyword == 'lb_temp3'):
+						lb_temp[2] = int(value)
+					elif(keyword == 'lb_speed3'):
+						lb_speed[2] = int(value)
+					elif(keyword == 'ub_speed3'):
+						ub_speed[2] = int(value)
 					#Unparseable garbage
 					else:
 						if not (keyword == ''):
@@ -160,7 +185,8 @@ def readConfig(initialisation):
 			print("lb_speed: " + str(lb_speed))
 			print("ub_speed: " + str(ub_speed))
 			print('force fan1: ' + str(forcelevel1))
-			print('force fan2: ' + str(forcelevel2) + "\n")
+			print('force fan2: ' + str(forcelevel2))
+			print('force fan3: ' + str(forcelevel3) + "\n")
 		
 def makeSerialConnection():
 	global ser
@@ -205,6 +231,7 @@ try:
 		temps = readGPUTemp()
 		avgtemp = (temps[0] + temps[1])/2
 		
+		#Fan 1
 		if (forcelevel1 == -1):
 			if not tempToSpeed(avgtemp, 1) == sSetpoint1:
 				print("Adjusting fan 1 speed for temp. " + str(avgtemp) + " with speed: " + str(tempToSpeed(avgtemp, 1)))
@@ -217,7 +244,7 @@ try:
 				if setFanSpeed(forcelevel1, 1):
 					sSetpoint1 = forcelevel1
 					print("Fan 1 forced to " + str(forcelevel1))
-					
+		#Fan 2	
 		if (forcelevel2 == -1):
 			if not tempToSpeed(avgtemp, 2) == sSetpoint2:
 				print("Adjusting fan 2 speed for temp. " + str(avgtemp) + " with speed: " + str(tempToSpeed(avgtemp, 2)))
@@ -230,7 +257,23 @@ try:
 				if setFanSpeed(forcelevel2, 2):
 					sSetpoint2 = forcelevel2
 					print("Fan 2 forced to " + str(forcelevel2))
+		#Fan 3	
+		if (forcelevel3 == -1):
+			if not tempToSpeed(avgtemp, 3) == sSetpoint3:
+				print("Adjusting fan 3 speed for temp. " + str(avgtemp) + " with speed: " + str(tempToSpeed(avgtemp, 3)))
+				if setFanSpeed(tempToSpeed(avgtemp, 3), 3):
+					sSetpoint3 = tempToSpeed(avgtemp, 3)
+					print("Fan 3 speed adjusted to " + str(tempToSpeed(avgtemp, 3)))
+		else:
+			if not (sSetpoint3 == forcelevel3):
+				print("Setting forcelevel3...")
+				if setFanSpeed(forcelevel3, 3):
+					sSetpoint3 = forcelevel3
+					print("Fan 3 forced to " + str(forcelevel3))
 
+		print(getFanSpeed(1))
+		#print(getFanSpeed(2))
+		
 		#update configuration file
 		readConfig(False)
 		time.sleep(1)				

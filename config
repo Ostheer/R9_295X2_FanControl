@@ -7,19 +7,27 @@ baudrate = 9600
 serialroot = /dev/ttyUSB
 
 #Force fan speeds (range 0-3000, defined by Arduino code), -1 to disable
-forcelevel1 = 3000
-forcelevel2 = -1
+#Seemingly good values:
+#forcelevel1 = 20
+#forcelevel2 = 50
+forcelevel1 = 50
+forcelevel2 = 60
+forcelevel3 = -1
 
 ## Fan speed curve params
 #Fans all out at 100 degrees. These should probably remain equal
 ub_temp1 = 100 
 ub_temp2 = 100
+ub_temp3 = 100
 #Until here, idle speeds. These should probably remain equal
 lb_temp1 = 60
 lb_temp2 = 60
+lb_temp3 = 60
 #Idle speed, for when below lb_temp degrees
-lb_speed1 = 10
+lb_speed1 = 20
 lb_speed2 = 10
+lb_speed3 = 10
 #Max speed, defined by Arduino code (very nonlinear).
-ub_speed1 = 500
+ub_speed1 = 255
 ub_speed2 = 500
+ub_speed3 = 500
