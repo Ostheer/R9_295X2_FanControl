@@ -4,12 +4,14 @@ import time
 import glob
 import subprocess
 import os
+import datetime
 
 ##PARAMETER DEFINITION
 #Connection params
 TIMEOUT = 1
 CONNECTED = False
 ser = None
+logToFile = True
 
 #Arbitrary conventions
 fan_ids = ('Z', 'O', 'T')
@@ -36,6 +38,13 @@ sMeasure2 = 0
 sMeasure3 = 0
 
 #Functions
+def logOutput(message):
+	if logToFile:
+		with open('log','ab') as f:
+			f.write((message + "\n").encode("utf-8"))
+	else:
+		print(message)
+
 def dumpRead():
 	ser.readline()
 	
@@ -49,7 +58,7 @@ def sendAndReceive(command):
 	except UnicodeDecodeError:
 		recv = 'non-utf-8'
 	except serial.SerialException:
-		print("Connection error.")
+		logOutput("Connection error.")
 		dumpRead()
 		ser.close()
 		CONNECTED = False
@@ -101,26 +110,26 @@ def setFanSpeed(level, fan):
 	if (recv == fan_ids[fan-1] + ':' + str(level) + '\r\n'):
 		return True
 	else:
-		print("Received unexpected result: " + recv)
+		logOutput("Received unexpected result: " + recv)
 		return False
 
-def getFanSpeed(fan):
-	fail = True
-	attempts = 0
-	while fail:
-		try:
-			recvd = sendAndReceive(str(fan-1) + 'R')
-			speed = int(recvd.split(':')[1])
-			fail = False
-		except IndexError:
-			fail = True
-			time.sleep(1/2)
-		finally:
-			attempts = attempts + 1
-
-		if attempts == 5:
-			return -1
-	return speed
+#def getFanSpeed(fan):
+#	fail = True
+#	attempts = 0
+#	while fail:
+#		try:
+#			recvd = sendAndReceive(str(fan-1) + 'R')
+#			speed = int(recvd.split(':')[1])
+#			fail = False
+#		except IndexError:
+#			fail = True
+#			time.sleep(1/2)
+#		finally:
+#			attempts = attempts + 1
+#
+#		if attempts == 5:
+#			return -1
+#	return speed
 	
 def readConfig(initialisation):
 	global baudrate
@@ -181,22 +190,22 @@ def readConfig(initialisation):
 					#Unparseable garbage
 					else:
 						if not (keyword == ''):
-							print("Unknown keyword: " + keyword)
+							logOutput("Unknown keyword: " + keyword)
 	except FileNotFoundError:
-		print("No configuration file (in " + os.getcwd() + ")! Using defaults...")
+		logOutput("No configuration file (in " + os.getcwd() + ")! Using defaults...")
 		pass
 	finally:
 		if initialisation:
-			print("Configuration:")
-			print(str(serialroot) + '*')
-			print(str(baudrate) + ' baud')
-			print("ub_temp: " + str(ub_temp))
-			print("lb_temp: " + str(lb_temp))
-			print("lb_speed: " + str(lb_speed))
-			print("ub_speed: " + str(ub_speed))
-			print('force fan1: ' + str(forcelevel1))
-			print('force fan2: ' + str(forcelevel2))
-			print('force fan3: ' + str(forcelevel3) + "\n")
+			logOutput("Configuration:")
+			logOutput(str(serialroot) + '*')
+			logOutput(str(baudrate) + ' baud')
+			logOutput("ub_temp: " + str(ub_temp))
+			logOutput("lb_temp: " + str(lb_temp))
+			logOutput("lb_speed: " + str(lb_speed))
+			logOutput("ub_speed: " + str(ub_speed))
+			logOutput('force fan1: ' + str(forcelevel1))
+			logOutput('force fan2: ' + str(forcelevel2))
+			logOutput('force fan3: ' + str(forcelevel3) + "\n")
 
 #def connectExplicit(d,b,t):
 #	return serial.Serial(d,b,timeout=t)
@@ -210,19 +219,19 @@ def makeSerialConnection():
 		
 		for device in devices:
 			tries = 0
-			print("Trying to connect to " + device + "...")
+			logOutput("Trying to connect to " + device + "...")
 			ser = serial.Serial(device,baudrate,timeout=TIMEOUT)
 			while (tries < 3) and (not CONNECTED):
 				time.sleep(3)
 				a = sendAndReceive('W')
-				print(a.split('\r')[0])
+				logOutput(a.split('\r')[0])
 				if(a.split('\r')[0] == '1337'):
 					#Device responds with appropriate ID
-					print("Connected to controller on " + device + "\n")
+					logOutput("Connected to controller on " + device + "\n")
 					CONNECTED = True
 				else:
 					#Incorrect response: random other device
-					print(device + " replied with incorrect ID")
+					logOutput(device + " replied with incorrect ID")
 				tries = tries + 1
 				
 			if CONNECTED:
@@ -231,16 +240,17 @@ def makeSerialConnection():
 				ser.close()
 				
 	except serial.SerialException:
-		print("Unexpected serial error. Giving up.")
+		logOutput("Unexpected serial error. Giving up.")
 		ser.close()
 		CONNECTED = False
 		pass
 	finally:
 		if not CONNECTED:
-			print("Could not connect to any device. Exiting...")
+			logOutput("Could not connect to any device. Exiting...")
 			os._exit(1)
 
 ## INITIALISATION
+logOutput("Starting script at " + str(datetime.datetime.now()))
 readConfig(True)
 makeSerialConnection()
 
@@ -253,42 +263,42 @@ try:
 		#Fan 1
 		if (forcelevel1 == -1):
 			if not tempToSpeed(avgtemp, 1) == sSetpoint1:
-				print("Adjusting fan 1 speed for temp. " + str(avgtemp) + " with speed: " + str(tempToSpeed(avgtemp, 1)))
+				logOutput("Adjusting fan 1 speed for temp. " + str(avgtemp) + " with speed: " + str(tempToSpeed(avgtemp, 1)))
 				if setFanSpeed(tempToSpeed(avgtemp, 1), 1):
 					sSetpoint1 = tempToSpeed(avgtemp, 1)
-					print("Fan 1 speed adjusted to " + str(tempToSpeed(avgtemp, 1)))
+					logOutput("Fan 1 speed adjusted to " + str(tempToSpeed(avgtemp, 1)))
 		else:
 			if not (sSetpoint1 == forcelevel1):
-				print("Setting forcelevel1...")
+				logOutput("Setting forcelevel1...")
 				if setFanSpeed(forcelevel1, 1):
 					sSetpoint1 = forcelevel1
-					print("Fan 1 forced to " + str(forcelevel1))
+					logOutput("Fan 1 forced to " + str(forcelevel1))
 		#Fan 2	
 		if (forcelevel2 == -1):
 			if not tempToSpeed(avgtemp, 2) == sSetpoint2:
-				print("Adjusting fan 2 speed for temp. " + str(avgtemp) + " with speed: " + str(tempToSpeed(avgtemp, 2)))
+				logOutput("Adjusting fan 2 speed for temp. " + str(avgtemp) + " with speed: " + str(tempToSpeed(avgtemp, 2)))
 				if setFanSpeed(tempToSpeed(avgtemp, 2), 2):
 					sSetpoint2 = tempToSpeed(avgtemp, 2)
-					print("Fan 2 speed adjusted to " + str(tempToSpeed(avgtemp, 2)))
+					logOutput("Fan 2 speed adjusted to " + str(tempToSpeed(avgtemp, 2)))
 		else:
 			if not (sSetpoint2 == forcelevel2):
-				print("Setting forcelevel2...")
+				logOutput("Setting forcelevel2...")
 				if setFanSpeed(forcelevel2, 2):
 					sSetpoint2 = forcelevel2
-					print("Fan 2 forced to " + str(forcelevel2))
+					logOutput("Fan 2 forced to " + str(forcelevel2))
 		#Fan 3	
 		if (forcelevel3 == -1):
 			if not tempToSpeed(avgtemp, 3) == sSetpoint3:
-				print("Adjusting fan 3 speed for temp. " + str(avgtemp) + " with speed: " + str(tempToSpeed(avgtemp, 3)))
+				logOutput("Adjusting fan 3 speed for temp. " + str(avgtemp) + " with speed: " + str(tempToSpeed(avgtemp, 3)))
 				if setFanSpeed(tempToSpeed(avgtemp, 3), 3):
 					sSetpoint3 = tempToSpeed(avgtemp, 3)
-					print("Fan 3 speed adjusted to " + str(tempToSpeed(avgtemp, 3)))
+					logOutput("Fan 3 speed adjusted to " + str(tempToSpeed(avgtemp, 3)))
 		else:
 			if not (sSetpoint3 == forcelevel3):
-				print("Setting forcelevel3...")
+				logOutput("Setting forcelevel3...")
 				if setFanSpeed(forcelevel3, 3):
 					sSetpoint3 = forcelevel3
-					print("Fan 3 forced to " + str(forcelevel3))
+					logOutput("Fan 3 forced to " + str(forcelevel3))
 		
 		
 		#sMeasure1 = getFanSpeed(1)
@@ -299,7 +309,7 @@ try:
 		readConfig(False)
 		time.sleep(1)				
 except KeyboardInterrupt:
-	print("Stopping...")
+	logOutput("Stopping...")
 	pass
 finally:
 	ser.close()
